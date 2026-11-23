@@ -1,0 +1,22 @@
+﻿* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    padding: 2rem;
+    font-family: Arial, sans-serif;
+    background: #f5f6fa;
+    color: #202534;
+}
+
+header, main {
+    max-width: 1100px;
+    margin: 0 auto 1.5rem;
+}
+
+main {
+    background: white;
+    padding: 2rem;
+    border-radius: 10px;
+}
