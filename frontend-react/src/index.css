@@ -1,0 +1,83 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Playfair+Display:wght@500;600;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --cream: #f1e6d2;
+  --caramel: #b68a68;
+  --mocha: #96745a;
+  --taupe: #8b8178;
+  --cocoa: #684b3b;
+  --gold: #d4af37;
+  --brass: #b08d57;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    min-height: 100%;
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--cream);
+    color: var(--cocoa);
+    font-family: "Inter", system-ui, sans-serif;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: "Playfair Display", Georgia, serif;
+    color: var(--cocoa);
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-xl border border-brass/40 bg-white/60 p-5 shadow-soft;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-medium transition duration-200 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-primary {
+    @apply btn bg-mocha text-cream hover:bg-cocoa;
+  }
+
+  .btn-secondary {
+    @apply btn border border-caramel bg-caramel/20 text-cocoa hover:bg-caramel/40;
+  }
+
+  .btn-gold {
+    @apply btn bg-gold-gradient text-cocoa shadow-brass hover:brightness-105;
+  }
+
+  .input-field {
+    @apply w-full rounded-lg border border-taupe/50 bg-cream/60 px-3 py-2 text-sm text-cocoa placeholder:text-taupe focus:border-brass focus:outline-none focus:ring-2 focus:ring-gold/40;
+  }
+
+  .badge {
+    @apply inline-block rounded-full px-3 py-1 text-xs font-semibold;
+  }
+
+  .badge-available {
+    @apply badge bg-green-100 text-green-800;
+  }
+
+  .badge-borrowed {
+    @apply badge bg-gold/25 text-brass-dark;
+  }
+
+  .badge-overdue {
+    @apply badge bg-red-100 text-red-800;
+  }
+
+  .brass-header {
+    @apply bg-brass-gradient text-cream;
+  }
+}
