@@ -1,152 +1,80 @@
-# Library Management System
+# Smart University Library Platform
 
-An academic Library Management System developed by a small student team.
+An academic Library Management System designed as a potential university pilot. The initial demonstration will support one library location, while the data model is designed to accommodate multiple locations.
 
-## Current status
+## Product vision
 
-> **Early scaffold.** The Flask project structure, a health-check endpoint and a first test exist. **MongoDB Atlas is not connected yet, and no library features (login, books, copies, loans) are implemented.** See `docs/implementation-plan.md` for the roadmap.
+A web-based platform for students, receptionists, librarians and administrators:
 
-## Technology stack
+- **Students:** sign in, search the catalogue, view copy availability, reserve a library entry time slot, manage bookings and view loans.
+- **Reception/reception staff:** view the day's bookings, check students in, manage walk-ins and monitor slot capacity.
+- **Librarians:** manage books and physical copies, issue and return loans, and view loan history.
+- **Administrators:** manage users, library locations, opening hours, slot capacity, permissions and operational reports.
+
+The first booking feature is **entry reservation**, not individual seat selection. A slot's capacity limits the number of arrivals booked in that time window; it does not represent live occupancy or guarantee a particular seat.
+
+## Current implementation status
+
+> **Early scaffold.** The Flask project structure, health-check endpoint and first test exist. MongoDB Atlas is not connected yet. Authentication, catalogue, physical copies, loans, entry slots, bookings, reports and frontend integration are not implemented. The documents describe the approved target design, not completed features.
+
+## Technology and architecture
 
 | Area | Technology |
 |---|---|
-| Backend language | Python 3 |
-| Web framework | Flask |
-| Database | MongoDB Atlas (cloud), accessed with PyMongo |
-| Frontend | HTML5, CSS3, vanilla JavaScript |
-| API style | REST, JSON |
-| Testing | pytest |
-
-This project does **not** use SQLite, SQLAlchemy, PostgreSQL, React or a Node.js backend.
-
-## Architecture in one minute
-
-The backend is a **layered modular monolith**: one Flask application split into layers.
+| Frontend | React + Vite (separate frontend application) |
+| Backend | Python 3 + Flask |
+| Database | MongoDB Atlas via PyMongo |
+| API | REST + JSON |
+| Testing | pytest; frontend tests to be selected |
+| Architecture | Layered modular monolith |
 
 ```
-Browser (frontend)  --REST/JSON-->  Routes -> Services -> Repositories -> MongoDB Atlas
+React frontend -> Flask REST API -> Routes -> Services -> Repositories -> MongoDB Atlas
 ```
 
-- **Routes** handle HTTP. **Services** hold the library rules. **Repositories** talk to MongoDB.
-- **Models** describe documents. **Database** creates the MongoDB connection. **Utils** are shared helpers.
-- The frontend is a separate app and only communicates with the backend through the REST API.
+The frontend communicates only with the Flask API. It must never connect directly to MongoDB. We will not split this student project into microservices.
 
-More detail: `docs/architecture.md`.
+## Main data areas
 
-## Data model in one minute
+- `users`: student, librarian and administrator accounts.
+- `library_locations`: library identity, timezone and operational settings.
+- `books`: bibliographic catalogue records.
+- `book_copies`: individual physical items.
+- `loans`: borrowing and return history.
+- `entry_slots`: bookable arrival windows and capacity.
+- `bookings`: a student's reservation for one entry slot.
 
-Four MongoDB collections:
+See `docs/database-design.md`.
 
-| Collection | Meaning |
-|---|---|
-| `users` | People who use the system, with a role: `STUDENT`, `LIBRARIAN` or `ADMIN` |
-| `books` | A book as a catalogue record (title, authors, ISBN...) |
-| `book_copies` | One physical copy of a book, identified by its `accession_number` |
-| `loans` | One borrowing of one physical copy by one user |
+## Repository layout
 
-More detail: `docs/database-design.md`.
-
-## Project structure (current)
+The backend currently lives in `backend/`. The React frontend is being developed on the separate `frontend-react-ui` branch, under `frontend-react/`; it will be integrated through a reviewed pull request. Do not replace or merge branches directly without review.
 
 ```
-backend/      Flask application, tests, requirements
-frontend/     Separate HTML/CSS/JavaScript frontend
-docs/         Architecture, database, API and planning documents
-scripts/      Development utilities (currently empty)
-CLAUDE.md     Rules for contributors and AI assistants
-.env.example  Template for environment variables (no real secrets)
+backend/       Flask application and tests
+frontend-react/ React + Vite application (integration target)
+docs/          Architecture, database, API and roadmap
+scripts/       Database setup and maintenance utilities
 ```
 
-The planned final backend structure is described in `docs/architecture.md`.
+## Development rules
 
-## Prerequisites
+- Work on assigned feature branches and open pull requests; do not push feature work directly to `main`.
+- Never commit `.env`, passwords, Atlas connection strings or other secrets.
+- Give each developer their own database credentials with minimum required permissions.
+- Keep development, test and any future production data separate.
+- Backend validation and authorization are mandatory; frontend checks are not security controls.
+- A phase is complete only when implementation, tests, review and documentation are complete.
 
-- Python 3 (Windows examples below use the `py` launcher)
-- Git
-- A free MongoDB Atlas account (needed from Phase 2 onwards; see the roadmap)
+## Setup
 
-## MongoDB Atlas setup (needed from Phase 2)
-
-The application does not connect to Atlas yet. When Phase 2 starts, each team member needs:
-
-1. Access to the team's Atlas project and cluster (or your own cluster for development).
-2. A **database user** for the application. Give it only the permissions it needs on this project's database, not administrator rights.
-3. Your IP address added to Atlas **Network Access**. Do not open access to every IP address.
-4. The cluster **connection string** from Atlas ("Drivers" -> Python).
-5. A local `.env` file created from `.env.example` with your own values.
-
-**Never commit `.env`, passwords or connection strings.** If a secret is ever committed, change it in Atlas immediately; deleting the commit is not enough.
-
-## Backend setup (Windows PowerShell)
-
-From the repository root:
-
-```powershell
-py -3 -m venv .venv
-.\.venv\Scripts\Activate.ps1
-cd backend
-python -m pip install --upgrade pip
-pip install -r requirements.txt
-python run.py
-```
-
-Create your local environment file by copying the template, then edit the copy:
-
-```powershell
-Copy-Item .env.example .env
-```
-
-(The exact location where the app loads `.env` is confirmed in Phase 2.)
-
-Health endpoint (exists in the scaffold):
-
-http://127.0.0.1:5000/api/health
-
-> **Known gap:** `backend/requirements.txt` and some configuration files may still list SQLite/SQLAlchemy-era packages or settings. They are removed in Phase 2. Do not rely on them.
-
-## Frontend setup
-
-Open a second terminal at the repository root:
-
-```powershell
-py -m http.server 5500 --directory frontend
-```
-
-Open http://127.0.0.1:5500
-
-**Use `127.0.0.1` for both the frontend and the backend (not a mix of `localhost` and `127.0.0.1`).** Browsers treat them as different sites, which breaks cookie-based login later.
-
-## Tests
-
-From the `backend` directory:
-
-```powershell
-python -m pytest -v
-```
-
-## Roles
-
-| Role | Intended purpose (proposed) |
-|---|---|
-| `STUDENT` | Browse the catalogue, see their own loans |
-| `LIBRARIAN` | Manage books and copies, issue and return loans |
-| `ADMIN` | Everything a librarian can do, plus manage user accounts and roles |
-
-The exact permissions per endpoint are in `docs/api-documentation.md`.
+Backend setup instructions are maintained with the backend scaffold and will be finalized in the MongoDB foundation phase. The application currently exposes the scaffold health endpoint at `/api/health`; a successful health response does not yet mean library features are available.
 
 ## Documentation
 
-| File | Content |
+| File | Purpose |
 |---|---|
-| `CLAUDE.md` | Project rules |
-| `docs/architecture.md` | Layers, dependency rules, security |
-| `docs/database-design.md` | Collections, fields, indexes, consistency |
-| `docs/api-documentation.md` | Planned REST endpoints |
-| `docs/implementation-plan.md` | Eleven implementation phases, open decisions |
-
-## Team rules
-
-- Do not commit secrets.
-- Do not add dependencies without team approval.
-- Keep code and documentation consistent.
-- Work phase by phase; do not skip ahead.
+| `docs/architecture.md` | System architecture, modules, dependencies and security |
+| `docs/database-design.md` | MongoDB collections, indexes and consistency rules |
+| `docs/api-documentation.md` | Planned REST endpoints and permissions |
+| `docs/implementation-plan.md` | Phases, acceptance criteria and open decisions |
