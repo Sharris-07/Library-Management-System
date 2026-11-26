@@ -1,37 +1,35 @@
 ﻿
-from flask import Flask, jsonify
+from flask import Flask
 from flask_cors import CORS
 
 from .config import Config
-from .extensions import db, migrate
+from .extensions import mongo
+from .routes import register_routes
 
 
-def create_app(config_class=Config):
-
+def create_app(test_config=None):
     app = Flask(__name__)
 
-    app.config.from_object(config_class)
+    app.config.from_object(Config)
 
-    # Allow our separate frontend to communicate with Flask.
+    if test_config:
+        app.config.update(test_config)
+
+    if not app.config.get("SECRET_KEY"):
+        raise RuntimeError("SECRET_KEY is not configured in .env.")
+
+    mongo.init_app(app)
+
     CORS(
         app,
-        origins=[
-            "http://127.0.0.1:5500",
-            "http://localhost:5500"
-        ],
-        supports_credentials=True
+        resources={
+            r"/api/*": {
+                "origins": app.config["CORS_ALLOWED_ORIGINS"]
+            }
+        },
+        supports_credentials=True,
     )
 
-    # Initialize database and migrations.
-    db.init_app(app)
-    migrate.init_app(app, db)
-
-    @app.get("/api/health")
-    def health_check():
-
-        return jsonify({
-            "status": "ok",
-            "service": "library-management-system"
-        }), 200
+    register_routes(app)
 
     return app
