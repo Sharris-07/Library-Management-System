@@ -1,160 +1,142 @@
-﻿# API Documentation
+# API Documentation
 
-**Status:** Planning document. **Only the health endpoint exists in the scaffold. Every other endpoint below is planned and not implemented.** Request and response schemas are **not finalized** unless stated.
+**Status:** Planned API contract. Only the scaffold health endpoint currently exists. All endpoints below are planned and must be implemented and tested before being described as available. Request/response schemas may be refined before implementation.
 
-Labels: **[APPROVED]**, **[PROPOSED]**, **[OPEN]**.
+## 1. Conventions
 
----
+- Base path: `/api`.
+- JSON request and response bodies; field names use `snake_case`.
+- ObjectIds are returned as strings in an `id` field.
+- API timestamps are ISO 8601 UTC. Slot display times are converted to the library's timezone.
+- Authentication uses a secure session cookie. State-changing requests require CSRF protection.
+- Roles: `STUDENT`, `LIBRARIAN`, `ADMIN`. Staff means librarian or admin.
+- Backend validation and authorization apply to every protected endpoint. Hiding frontend controls is not authorization.
 
-## 1. General conventions
-
-| Topic | Convention | Status |
-|---|---|---|
-| Base path | `/api` | PROPOSED (matches `/api/health` in the scaffold) |
-| Format | JSON requests and responses (`Content-Type: application/json`) | APPROVED |
-| Field names | `snake_case` | APPROVED |
-| Ids | ObjectIds are sent as strings in a field called `id` | PROPOSED |
-| Dates | ISO 8601 in UTC, e.g. `2026-01-31T10:00:00Z` | APPROVED |
-| Authentication | Session cookie (mechanism **OPEN D1**) | APPROVED (cookie-based) |
-| CSRF | A CSRF token is required on `POST`, `PATCH`, `PUT`, `DELETE` (mechanism **OPEN D2**) | APPROVED (requirement) |
-| Error body format | **Not finalized (D10)** | OPEN |
-| Pagination, sorting, filtering parameters | **Not finalized (D10)** | OPEN |
-
-### Roles used in the tables
-
-`STUDENT`, `LIBRARIAN`, `ADMIN`. "Staff" means `LIBRARIAN` or `ADMIN`. "Authenticated" means any logged-in role. "Self" means the logged-in user, for their own data only. All role rules are **[PROPOSED]** until the team approves them.
-
-### Common HTTP status codes (planned use)
-
-| Code | Meaning |
-|---|---|
-| 200 / 201 / 204 | Success / created / success without body |
-| 400 | Invalid request (validation failed) |
-| 401 | Not logged in |
-| 403 | Logged in but not allowed (wrong role, or not your data, or missing CSRF token) |
-| 404 | Not found |
-| 409 | Conflict (duplicate value, copy not available, loan already returned) |
-| 500 | Server error (no internal details shown) |
-
----
+Common status codes: 200 success, 201 created, 204 success without body, 400 invalid input, 401 unauthenticated, 403 forbidden, 404 not found, 409 conflict/capacity full, 500 generic server error. Error response format and pagination conventions must be finalized before frontend integration.
 
 ## 2. Health
 
-| Method | Path | Roles | Purpose | Status |
-|---|---|---|---|---|
-| GET | `/api/health` | Public | Check that the backend is running. After Phase 3 it may also check the MongoDB connection | Exists in scaffold (per README; not yet re-verified); database check is planned |
-
----
-
-## 3. Authentication
-
-| Method | Path | Roles | Purpose |
+| Method | Path | Access | Purpose |
 |---|---|---|---|
-| POST | `/api/auth/register` | Public **(OPEN D5)** | Create a `STUDENT` account. Whether self-registration exists at all is undecided. Never lets the caller choose a role |
-| POST | `/api/auth/login` | Public | Verify email and password and start a session |
-| POST | `/api/auth/logout` | Authenticated | End the session |
-| GET | `/api/auth/me` | Authenticated | Return the logged-in user's profile (never the password hash) |
-| GET | `/api/auth/csrf` | Authenticated | Provide a CSRF token. Exists only if the chosen CSRF mechanism needs it (D2) |
+| GET | `/api/health` | Public | Backend health; planned to include database reachability after Atlas integration |
 
----
+## 3. Authentication and users
 
-## 4. Users
-
-| Method | Path | Roles | Purpose |
+| Method | Path | Access | Purpose |
 |---|---|---|---|
-| GET | `/api/users` | Staff | List and search users |
-| GET | `/api/users/<user_id>` | Staff, or Self | Get one user's profile |
-| PATCH | `/api/users/<user_id>` | Self (limited fields), `ADMIN` | Update profile fields such as `full_name`. Role and active status are **not** changed here |
+| POST | `/api/auth/register` | Public, if enabled | Create student account; caller cannot choose role |
+| POST | `/api/auth/login` | Public | Authenticate and start session |
+| POST | `/api/auth/logout` | Authenticated | End session |
+| GET | `/api/auth/me` | Authenticated | Current user's safe profile |
+| GET | `/api/auth/csrf` | Authenticated | CSRF token if required by chosen mechanism |
+| GET | `/api/users` | Staff | Search/list users |
+| GET | `/api/users/<user_id>` | Staff or self | View permitted user profile |
+| PATCH | `/api/users/<user_id>` | Self (limited fields) or admin | Update permitted profile fields |
 
----
+## 4. Libraries and entry slots
 
-## 5. Books (catalogue)
-
-| Method | Path | Roles | Purpose |
+| Method | Path | Access | Purpose |
 |---|---|---|---|
-| GET | `/api/books` | Authenticated (**OPEN D6**: public browsing?) | Search and list books, including how many copies are available |
-| GET | `/api/books/<book_id>` | Authenticated (**OPEN D6**) | Get one book's bibliographic details and availability |
-| POST | `/api/books` | Staff | Create a book record |
-| PATCH | `/api/books/<book_id>` | Staff | Update a book record |
-| DELETE | `/api/books/<book_id>` | `ADMIN` | Delete a book only if it has no copies. Otherwise rejected with 409 |
+| GET | `/api/libraries` | Authenticated | List active library locations |
+| GET | `/api/libraries/<library_id>` | Authenticated | View library details and public opening information |
+| GET | `/api/libraries/<library_id>/slots` | Authenticated | List future slots and remaining capacity |
+| POST | `/api/admin/libraries` | Admin | Create a library location |
+| PATCH | `/api/admin/libraries/<library_id>` | Admin | Update library configuration |
+| POST | `/api/admin/libraries/<library_id>/slots/generate` | Admin or authorized staff | Generate slots for an approved future date range |
+| PATCH | `/api/admin/slots/<slot_id>` | Admin or authorized staff | Close a slot or change capacity under validation |
+| GET | `/api/admin/slots` | Staff | Staff view of slot schedules and capacity |
 
----
+Slot generation must be idempotent: repeating a generation request must not create duplicate slots. Capacity cannot be reduced below the number of bookings already holding places.
 
-## 6. Copies (physical copies)
+## 5. Student entry bookings
 
-| Method | Path | Roles | Purpose |
+| Method | Path | Access | Purpose |
 |---|---|---|---|
-| GET | `/api/copies` | Staff | List/search copies. Planned filters: `accession_number`, `book_id`, `status` |
-| GET | `/api/books/<book_id>/copies` | Staff | List the copies of one book |
-| POST | `/api/books/<book_id>/copies` | Staff | Register a new physical copy (unique `accession_number`) |
-| GET | `/api/copies/<copy_id>` | Staff | Get one copy |
-| PATCH | `/api/copies/<copy_id>` | Staff | Update shelf location, condition note, or status (only to `AVAILABLE`, `LOST`, `DAMAGED`, `WITHDRAWN` and only when not on loan). `ON_LOAN` can never be set here |
+| POST | `/api/bookings` | Student | Reserve one available entry slot |
+| GET | `/api/bookings/me` | Student | View own upcoming and past bookings |
+| GET | `/api/bookings/<booking_id>` | Booking owner or staff | View booking details |
+| DELETE | `/api/bookings/<booking_id>` | Booking owner or staff | Cancel a confirmed booking |
+| GET | `/api/staff/bookings` | Staff | View bookings by date, library and status |
+| POST | `/api/staff/bookings/<booking_id>/check-in` | Staff | Check in the student and record staff/time |
+| POST | `/api/staff/bookings/<booking_id>/no-show` | Staff or controlled system process | Record no-show after permitted window |
 
-There is **no** endpoint to delete a copy. Copies leave circulation by changing status to `WITHDRAWN`.
+### Booking request (proposed)
 
----
+```json
+{
+  "slot_id": "MongoDB ObjectId as a string"
+}
+```
+
+The backend obtains `user_id` from the authenticated session. The client cannot submit its own booking status, capacity counter, check-in staff id or another student's id.
+
+### Booking response (proposed)
+
+```json
+{
+  "id": "booking id",
+  "slot_id": "slot id",
+  "library_id": "library id",
+  "starts_at": "UTC ISO-8601 timestamp",
+  "ends_at": "UTC ISO-8601 timestamp",
+  "status": "CONFIRMED",
+  "booked_at": "UTC ISO-8601 timestamp"
+}
+```
+
+### Booking API rules
+
+- A student may only create a booking for themselves.
+- The slot must be open, future-dated, within the booking window and have remaining capacity.
+- Duplicate confirmed bookings by the same student for the same slot are rejected.
+- Capacity is enforced atomically in the database; a full slot returns 409.
+- A student may cancel only their own confirmed booking, subject to the cancellation cutoff.
+- Only staff can check in a student. Check-in must be within the configured grace period.
+- A cancelled booking cannot be checked in. Duplicate check-in is rejected.
+- No-show processing is idempotent and preserves the audit record.
+- Staff reports expose only the information needed for reception operations.
+
+## 6. Catalogue and physical copies
+
+| Method | Path | Access | Purpose |
+|---|---|---|---|
+| GET | `/api/books` | Authenticated (public browsing decision open) | Search catalogue and availability |
+| GET | `/api/books/<book_id>` | Authenticated | Catalogue details |
+| POST | `/api/books` | Staff | Create catalogue record |
+| PATCH | `/api/books/<book_id>` | Staff | Update catalogue record |
+| GET | `/api/copies` | Staff | Search physical copies |
+| POST | `/api/books/<book_id>/copies` | Staff | Register physical copy at a library |
+| PATCH | `/api/copies/<copy_id>` | Staff | Update permitted copy details/status |
+
+A book is a bibliographic record; each physical copy has its own accession number and library location. Copies are withdrawn rather than hard-deleted when they have history.
 
 ## 7. Loans
 
-| Method | Path | Roles | Purpose |
+| Method | Path | Access | Purpose |
 |---|---|---|---|
-| POST | `/api/loans` | Staff | Borrow: issue a copy (identified by `accession_number`) to a user. Runs inside a transaction |
-| POST | `/api/loans/<loan_id>/return` | Staff | Return: mark an active loan as returned and the copy as available. Runs inside a transaction |
-| GET | `/api/loans` | Staff | List/search loans. Planned filters: `status`, `user_id`, `book_id`, overdue only |
-| GET | `/api/loans/me` | Authenticated | The logged-in user's own loan history (current and past) |
-| GET | `/api/loans/<loan_id>` | Staff, or the borrower | Get one loan |
+| POST | `/api/loans` | Staff | Issue a physical copy to a user |
+| POST | `/api/loans/<loan_id>/return` | Staff | Return a loan |
+| GET | `/api/loans` | Staff | Search loans and overdue items |
+| GET | `/api/loans/me` | Authenticated | Own loan history |
+| GET | `/api/loans/<loan_id>` | Staff or borrower | View permitted loan details |
 
-Whether students can request or renew loans themselves is **OPEN (D7)**. Currently only staff issue and return loans. No renewal, reservation or fine endpoint is planned until D7 is decided.
+Issue/return operations must preserve consistency between copy status and loan status in a transaction.
 
----
+## 8. Administration and reports
 
-## 8. Administration
-
-| Method | Path | Roles | Purpose |
+| Method | Path | Access | Purpose |
 |---|---|---|---|
-| POST | `/api/admin/users` | `ADMIN` | Create a user with any role (e.g. a new librarian) |
-| PATCH | `/api/admin/users/<user_id>/role` | `ADMIN` | Change a user's role |
-| PATCH | `/api/admin/users/<user_id>/status` | `ADMIN` | Activate or deactivate a user (`is_active`) |
-| GET | `/api/admin/summary` | `ADMIN` | Basic counts (users, books, copies, active and overdue loans). Contents not finalized |
+| POST | `/api/admin/users` | Admin | Create account with approved role |
+| PATCH | `/api/admin/users/<user_id>/role` | Admin | Change role |
+| PATCH | `/api/admin/users/<user_id>/status` | Admin | Activate/deactivate account |
+| GET | `/api/admin/summary` | Admin | Aggregate users, books, copies, loans and booking totals |
+| GET | `/api/admin/reports/bookings` | Admin | Booking/check-in/no-show trends |
+| GET | `/api/admin/reports/usage` | Admin | Operational summaries, not live occupancy unless a separate occupancy feature is implemented |
 
-How the very first `ADMIN` account is created is **OPEN (D5)**.
+## 9. API implementation notes
 
-Safeguards planned: an admin cannot remove their own admin role or deactivate themselves, so the system is never left without an admin.
-
----
-
-## 9. Request and response schemas: NOT FINALIZED
-
-The tables below are **starting points for discussion**, not agreed contracts. Do not code against them until the team approves them in the relevant phase.
-
-| Endpoint | Proposed request fields | Proposed response | Status |
-|---|---|---|---|
-| `POST /api/auth/login` | `email`, `password` | User profile (`id`, `email`, `full_name`, `role`) | NOT FINALIZED |
-| `POST /api/auth/register` | `email`, `password`, `full_name`, optional `student_id` | Created profile | NOT FINALIZED |
-| `POST /api/books` | `title`, `authors[]`, optional `isbn`, `publisher`, `publication_year`, `category`, `description`, `language` | Created book | NOT FINALIZED |
-| `POST /api/books/<book_id>/copies` | `accession_number`, optional `shelf_location`, `condition_note`, `acquired_at` | Created copy | NOT FINALIZED |
-| `POST /api/loans` | `user_id`, `accession_number` (due date set by the server) | Created loan | NOT FINALIZED |
-| `POST /api/loans/<loan_id>/return` | none, or an optional note | Updated loan | NOT FINALIZED |
-| Error responses (all endpoints) | n/a | Error code + human-readable message | NOT FINALIZED (D10) |
-| List responses (all list endpoints) | Pagination and filter parameters | Items plus paging information | NOT FINALIZED (D10) |
-
-Responses must **never** include `password_hash`.
-
----
-
-## 10. API security notes
-
-- Authentication and role checks are enforced by the backend on every request. Hiding a button in the frontend is not security.
-- User id and role always come from the session, never from the request body.
-- State-changing requests need a CSRF token. CORS only allows the configured frontend origin. See `docs/architecture.md`.
-- All input is validated by the backend. Unknown fields are not saved.
-- Never put passwords or secrets in URLs or query strings.
-- Error responses must not leak internal details.
-
----
-
-## 11. Open decisions for this document
-
-D1 session mechanism, D2 CSRF mechanism, D5 self-registration and first admin, D6 public catalogue, D7 loan rules, D10 error format and pagination.
-
-See `docs/implementation-plan.md`.
+- Do not leak stack traces, MongoDB errors, password hashes, session identifiers or secrets.
+- Validate all ObjectIds, dates, filters, status values and pagination parameters.
+- Do not accept MongoDB query operators from clients.
+- Use consistent error codes/messages so React can display actionable feedback.
+- Finalize schemas and pagination before frontend integration; keep this document synchronized with actual tested routes.
