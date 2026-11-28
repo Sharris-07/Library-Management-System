@@ -1,152 +1,73 @@
-# Library Management System
+# Smart University Library Platform
 
-An academic Library Management System developed by a small student team.
+An academic Library Management System designed as a potential university pilot. The first demonstrator targets one library location while the data model supports multiple locations.
 
-## Current status
+## Product scope
 
-> **Early scaffold.** The Flask project structure, a health-check endpoint and a first test exist. **MongoDB Atlas is not connected yet, and no library features (login, books, copies, loans) are implemented.** See `docs/implementation-plan.md` for the roadmap.
+- **Students:** sign in, search the catalogue, view copy availability, reserve a library entry time slot, manage bookings and view loan history.
+- **Reception:** view daily bookings, check students in and monitor slot capacity.
+- **Librarians:** manage books and physical copies, issue and return loans.
+- **Administrators:** manage users, libraries, opening hours, slot capacity and operational reports.
 
-## Technology stack
+The booking feature reserves an arrival window. It does not reserve a seat or measure live occupancy.
+
+## Technology
 
 | Area | Technology |
 |---|---|
-| Backend language | Python 3 |
-| Web framework | Flask |
-| Database | MongoDB Atlas (cloud), accessed with PyMongo |
-| Frontend | HTML5, CSS3, vanilla JavaScript |
-| API style | REST, JSON |
+| Frontend | React + Vite (integration branch) |
+| Backend | Python 3 + Flask |
+| Database | MongoDB Atlas via PyMongo |
+| API | REST + JSON |
 | Testing | pytest |
+| Architecture | Layered modular monolith |
 
-This project does **not** use SQLite, SQLAlchemy, PostgreSQL, React or a Node.js backend.
+React communicates only with Flask. It must never connect directly to MongoDB.
 
-## Architecture in one minute
+## Current implementation status
 
-The backend is a **layered modular monolith**: one Flask application split into layers.
+The architecture and API documents describe the target product. The integration branch is implementing the MongoDB foundation: seven collection definitions, validators and indexes. Authentication, booking operations, circulation workflows and complete React integration must not be described as available until implemented and tested.
 
-```
-Browser (frontend)  --REST/JSON-->  Routes -> Services -> Repositories -> MongoDB Atlas
-```
+## Repository layout
 
-- **Routes** handle HTTP. **Services** hold the library rules. **Repositories** talk to MongoDB.
-- **Models** describe documents. **Database** creates the MongoDB connection. **Utils** are shared helpers.
-- The frontend is a separate app and only communicates with the backend through the REST API.
+- backend/: Flask application, database setup and tests
+- frontend-react/: React + Vite application on the frontend feature branch
+- docs/: architecture, database design, API contract and implementation plan
 
-More detail: `docs/architecture.md`.
+## Backend setup
 
-## Data model in one minute
+1. Install Python 3.11 or later.
+2. Create and activate a virtual environment.
+3. Install dependencies: `pip install -r backend/requirements.txt`.
+4. Create a local environment file: `python backend/setup_env.py`.
+5. Enter the Atlas database username, cluster hostname and password when prompted. Use a least-privilege development database user.
+6. Confirm the Atlas network access list permits your current development IP.
+7. Initialize the database:
 
-Four MongoDB collections:
+   `cd backend`
+   `python init_db.py`
 
-| Collection | Meaning |
-|---|---|
-| `users` | People who use the system, with a role: `STUDENT`, `LIBRARIAN` or `ADMIN` |
-| `books` | A book as a catalogue record (title, authors, ISBN...) |
-| `book_copies` | One physical copy of a book, identified by its `accession_number` |
-| `loans` | One borrowing of one physical copy by one user |
+8. Run the backend: `python run.py`.
 
-More detail: `docs/database-design.md`.
-
-## Project structure (current)
-
-```
-backend/      Flask application, tests, requirements
-frontend/     Separate HTML/CSS/JavaScript frontend
-docs/         Architecture, database, API and planning documents
-scripts/      Development utilities (currently empty)
-CLAUDE.md     Rules for contributors and AI assistants
-.env.example  Template for environment variables (no real secrets)
-```
-
-The planned final backend structure is described in `docs/architecture.md`.
-
-## Prerequisites
-
-- Python 3 (Windows examples below use the `py` launcher)
-- Git
-- A free MongoDB Atlas account (needed from Phase 2 onwards; see the roadmap)
-
-## MongoDB Atlas setup (needed from Phase 2)
-
-The application does not connect to Atlas yet. When Phase 2 starts, each team member needs:
-
-1. Access to the team's Atlas project and cluster (or your own cluster for development).
-2. A **database user** for the application. Give it only the permissions it needs on this project's database, not administrator rights.
-3. Your IP address added to Atlas **Network Access**. Do not open access to every IP address.
-4. The cluster **connection string** from Atlas ("Drivers" -> Python).
-5. A local `.env` file created from `.env.example` with your own values.
-
-**Never commit `.env`, passwords or connection strings.** If a secret is ever committed, change it in Atlas immediately; deleting the commit is not enough.
-
-## Backend setup (Windows PowerShell)
-
-From the repository root:
-
-```powershell
-py -3 -m venv .venv
-.\.venv\Scripts\Activate.ps1
-cd backend
-python -m pip install --upgrade pip
-pip install -r requirements.txt
-python run.py
-```
-
-Create your local environment file by copying the template, then edit the copy:
-
-```powershell
-Copy-Item .env.example .env
-```
-
-(The exact location where the app loads `.env` is confirmed in Phase 2.)
-
-Health endpoint (exists in the scaffold):
-
-http://127.0.0.1:5000/api/health
-
-> **Known gap:** `backend/requirements.txt` and some configuration files may still list SQLite/SQLAlchemy-era packages or settings. They are removed in Phase 2. Do not rely on them.
-
-## Frontend setup
-
-Open a second terminal at the repository root:
-
-```powershell
-py -m http.server 5500 --directory frontend
-```
-
-Open http://127.0.0.1:5500
-
-**Use `127.0.0.1` for both the frontend and the backend (not a mix of `localhost` and `127.0.0.1`).** Browsers treat them as different sites, which breaks cookie-based login later.
+The API runs locally on port 5000. The health endpoint is `http://127.0.0.1:5000/api/health`.
 
 ## Tests
 
-From the `backend` directory:
+From the repository root, run `pytest backend/tests -q`.
 
-```powershell
-python -m pytest -v
-```
+Tests must use a separate test database. Never run destructive tests against development or production data.
 
-## Roles
+## Security rules
 
-| Role | Intended purpose (proposed) |
-|---|---|
-| `STUDENT` | Browse the catalogue, see their own loans |
-| `LIBRARIAN` | Manage books and copies, issue and return loans |
-| `ADMIN` | Everything a librarian can do, plus manage user accounts and roles |
-
-The exact permissions per endpoint are in `docs/api-documentation.md`.
+- Never commit .env, Atlas credentials, passwords or private keys.
+- Use individual least-privilege Atlas users.
+- Keep development, test and production databases separate.
+- Backend authorization is mandatory; frontend role checks are not security controls.
+- Do not expose MongoDB credentials to the browser.
 
 ## Documentation
 
-| File | Content |
-|---|---|
-| `CLAUDE.md` | Project rules |
-| `docs/architecture.md` | Layers, dependency rules, security |
-| `docs/database-design.md` | Collections, fields, indexes, consistency |
-| `docs/api-documentation.md` | Planned REST endpoints |
-| `docs/implementation-plan.md` | Eleven implementation phases, open decisions |
-
-## Team rules
-
-- Do not commit secrets.
-- Do not add dependencies without team approval.
-- Keep code and documentation consistent.
-- Work phase by phase; do not skip ahead.
+- docs/architecture.md — system architecture and security
+- docs/database-design.md — collections, validators, indexes and consistency rules
+- docs/api-documentation.md — planned REST API
+- docs/implementation-plan.md — deadline plan, acceptance criteria and remaining decisions

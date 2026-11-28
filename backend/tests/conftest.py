@@ -1,28 +1,28 @@
-﻿import pytest
+﻿
+import pytest
 
-from app import create_app
-from app.extensions import db
-
-
-@pytest.fixture()
-def app(tmp_path):
-    class TestConfig:
-        TESTING = True
-        SECRET_KEY = "test-secret"
-        SQLALCHEMY_DATABASE_URI = (
-            f"sqlite:///{tmp_path / 'test.db'}"
-        )
-        SQLALCHEMY_TRACK_MODIFICATIONS = False
-
-    application = create_app(TestConfig)
-
-    with application.app_context():
-        db.create_all()
-        yield application
-        db.session.remove()
-        db.drop_all()
+from backend.app import create_app
+from backend.app.extensions import mongo
 
 
-@pytest.fixture()
+@pytest.fixture
+def app():
+    test_config = {
+        "TESTING": True,
+        "SECRET_KEY": "test-secret-key",
+        "MONGODB_URI": "mongodb://localhost:27017",
+        "MONGODB_DB_NAME": "library_management_test",
+        "MONGODB_SERVER_SELECTION_TIMEOUT_MS": 1000,
+        "CORS_ALLOWED_ORIGINS": ["http://127.0.0.1:5173"],
+    }
+
+    application = create_app(test_config)
+
+    yield application
+
+    mongo.close()
+
+
+@pytest.fixture
 def client(app):
     return app.test_client()
