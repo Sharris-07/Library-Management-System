@@ -1,6 +1,6 @@
 # Database Design (MongoDB Atlas)
 
-**Status:** Target design only. MongoDB Atlas is not connected and these collections, indexes and validators have not been created. Implement in phases as listed in `docs/implementation-plan.md`.
+**Status:** Target schema is defined. The integration branch now contains idempotent collection-validator and index definitions plus a setup script. These definitions are not considered verified until `python backend/init_db.py` has run successfully against the team's Atlas development database and the resulting collections/indexes have been inspected.
 
 ## 1. Core concepts
 
